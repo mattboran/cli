@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -169,6 +170,11 @@ type PullRequestChecksStatus struct {
 	Failing int
 	Passing int
 	Total   int
+}
+
+type AssigneesInput struct {
+	AssignableID string
+	AssigneeIDs  []string
 }
 
 func (pr *PullRequest) ChecksStatus() (summary PullRequestChecksStatus) {
@@ -717,6 +723,39 @@ func AddReview(client *Client, pr *PullRequest, input *PullRequestReviewInput) e
 	v4 := githubv4.NewClient(client.http)
 
 	return v4.Mutate(context.Background(), &mutation, gqlInput, nil)
+}
+
+func AddAssignees(client *Client, input *AssigneesInput) error {
+	var mutation struct {
+		AddAssigneesToAssignable struct {
+			Assignable struct {
+				Assignees struct {
+					TotalCount int
+				}
+			}
+		} `graphql:"addAssigneesToAssignable(input:$input)"`
+	}
+
+	var assigneeIDs []githubv4.ID
+	for _, ID := range input.AssigneeIDs {
+		assigneeIDs = append(assigneeIDs, ID)
+	}
+	gqlInput := githubv4.AddAssigneesToAssignableInput{
+		AssignableID: input.AssignableID,
+		AssigneeIDs:  assigneeIDs,
+	}
+
+	v4 := githubv4.NewClient(client.http)
+
+	err := v4.Mutate(context.Background(), &mutation, gqlInput, nil)
+	if err != nil {
+		return err
+	}
+	count := mutation.AddAssigneesToAssignable.Assignable.Assignees.TotalCount
+	if count < len(assigneeIDs) {
+		return errors.New("result count is less than supplied count")
+	}
+	return err
 }
 
 func PullRequestList(client *Client, vars map[string]interface{}, limit int) (*PullRequestAndTotalCount, error) {

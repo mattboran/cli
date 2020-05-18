@@ -91,7 +91,7 @@ func prAssign(cmd *cobra.Command, args []string) error {
 		prNum = pr.Number
 	}
 
-	logins, err := processAssignOpt(cmd)
+	loginsToAssign, err := processAssignOpt(cmd)
 	if err != nil {
 		return err
 	}
@@ -112,19 +112,19 @@ func prAssign(cmd *cobra.Command, args []string) error {
 	if len(assignees) == 0 {
 		fmt.Fprintf(out, "No reviewers currently assigned.")
 	} else {
-		var logins []string
+		var currentlyAssigned []string
 		for _, member := range assignees {
-			logins = append(logins, member.Login)
+			currentlyAssigned = append(currentlyAssigned, member.Login)
 		}
-		fmt.Fprintf(out, "Currently assigned: (%s)\n", strings.Join(logins, ", "))
+		fmt.Fprintf(out, "Currently assigned: (%s)\n", strings.Join(currentlyAssigned, ", "))
 	}
 
-	var assignableIds []string
+	var assignableIDs []string
 	var notFoundLogins []string
 	teamMemberToIDMap := assignableMap(teamMembers)
-	for _, login := range logins {
+	for _, login := range loginsToAssign {
 		if id, found := teamMemberToIDMap[login]; found {
-			assignableIds = append(assignableIds, id)
+			assignableIDs = append(assignableIDs, id)
 		} else {
 			notFoundLogins = append(notFoundLogins, login)
 		}
@@ -135,9 +135,15 @@ func prAssign(cmd *cobra.Command, args []string) error {
 		return errors.New(errorMessage)
 	}
 
-	for index, ID := range assignableIds {
-		fmt.Fprintf(out, "Assigning user %s (ID %s) to assignable ID %s\n", logins[index], ID, pr.ID)
+	input := api.AssigneesInput{
+		AssignableID: pr.ID,
+		AssigneeIDs:  assignableIDs,
 	}
+	err = api.AddAssignees(apiClient, &input)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "Successfully added assignees (%s)\n", strings.Join(loginsToAssign, ", "))
 
 	return nil
 }
