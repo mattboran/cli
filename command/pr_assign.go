@@ -13,7 +13,9 @@ import (
 func init() {
 	prCmd.AddCommand(prAssignCmd)
 
-	prAssignCmd.Flags().StringSliceP("logins", "l", nil, "Specify the user logins to be assigned")
+	prAssignCmd.Flags().StringArrayP("login", "l", nil, "Specify a user login to be assigned")
+
+	prCmd.MarkFlagRequired("login")
 }
 
 var prAssignCmd = &cobra.Command{
@@ -25,18 +27,19 @@ var prAssignCmd = &cobra.Command{
 Examples:
 
 	gh pr assign -l mattboran                     # assign mattboran as a reviewer for the current branch's pull request
+	gh pr assign -l mattboran -l veeamd           # assign mattboran and veeamd as reviewers for the current branch's pull request
 	gh pr assign 123 -l mattboran                 # assign mattboran as a reviewer for pull request 123
 	`,
 	RunE: prAssign,
 }
 
 func processAssignOpt(cmd *cobra.Command) ([]string, error) {
-	logins, err := cmd.Flags().GetStringSlice("logins")
+	logins, err := cmd.Flags().GetStringArray("login")
 	if err != nil {
 		return nil, err
 	}
 	if len(logins) == 0 {
-		return nil, errors.New("need at least one username after --l")
+		return nil, errors.New("need at least one username after --login")
 	}
 	return logins, err
 }
