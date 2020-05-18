@@ -108,3 +108,37 @@ func OrganizationTeams(client *Client, owner string) ([]OrgTeam, error) {
 
 	return teams, nil
 }
+
+type TeamMember struct {
+	ID    string
+	Login string
+}
+
+// MobileTeamMembers fetch StreetEasy specific members of mobile team
+func MobileTeamMembers(client *Client, owner string, teamName string) ([]TeamMember, error) {
+	var query struct {
+		Organization struct {
+			Team struct {
+				Members struct {
+					Nodes []TeamMember
+				}
+			} `graphql:"team(slug: $teamName)"`
+		} `graphql:"organization(login: $owner)"`
+	}
+
+	variables := map[string]interface{}{
+		"owner":    githubv4.String(owner),
+		"teamName": githubv4.String(teamName),
+	}
+	v4 := githubv4.NewClient(client.http)
+
+	var members []TeamMember
+	err := v4.Query(context.Background(), &query, variables)
+	if err != nil {
+		return nil, err
+	}
+
+	members = append(members, query.Organization.Team.Members.Nodes...)
+
+	return members, nil
+}
